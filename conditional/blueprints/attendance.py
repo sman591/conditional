@@ -3,42 +3,42 @@ from flask import jsonify
 from flask import redirect
 from flask import request
 
-from util.ldap import ldap_get_non_alumni_members
-from util.ldap import ldap_get_name
-from util.ldap import ldap_get_current_students
-from util.ldap import ldap_is_eboard
-from util.ldap import ldap_is_eval_director
-from util.ldap import ldap_get_active_members
+from conditional.util.ldap import ldap_get_current_students
+from conditional.util.ldap import ldap_is_eboard
+from conditional.util.ldap import ldap_is_eval_director
+from conditional.util.ldap import ldap_get_active_members
 
-from db.models import CurrentCoops
-from db.models import CommitteeMeeting
-from db.models import FreshmanCommitteeAttendance
-from db.models import MemberCommitteeAttendance
-from db.models import TechnicalSeminar
-from db.models import FreshmanSeminarAttendance
-from db.models import MemberSeminarAttendance
-from db.models import HouseMeeting
-from db.models import FreshmanHouseMeetingAttendance
-from db.models import MemberHouseMeetingAttendance
-from db.models import FreshmanAccount
+from conditional.db.models import CurrentCoops
+from conditional.db.models import CommitteeMeeting
+from conditional.db.models import FreshmanCommitteeAttendance
+from conditional.db.models import MemberCommitteeAttendance
+from conditional.db.models import TechnicalSeminar
+from conditional.db.models import FreshmanSeminarAttendance
+from conditional.db.models import MemberSeminarAttendance
+from conditional.db.models import HouseMeeting
+from conditional.db.models import FreshmanHouseMeetingAttendance
+from conditional.db.models import MemberHouseMeetingAttendance
+from conditional.db.models import FreshmanAccount
 from datetime import datetime
 
-from util.flask import render_template
+from conditional.util.flask import render_template
 
 attendance_bp = Blueprint('attendance_bp', __name__)
 
+
 def get_name(m):
-    first = None
     if 'givenName' in m:
         first = m['givenName'][0].decode('utf-8')
     else:
         first = ""
-    last = None
+
     if 'sn' in m:
         last = m['sn'][0].decode('utf-8')
     else:
         last = ""
+
     return "{first} {last}".format(first=first, last=last)
+
 
 @attendance_bp.route('/attendance/ts_members')
 def get_all_members():
@@ -64,6 +64,7 @@ def get_all_members():
             })
 
     return jsonify({'members': named_members}), 200
+
 
 @attendance_bp.route('/attendance/hm_members')
 def get_non_alumni_non_coop(internal=False):
@@ -124,47 +125,46 @@ def get_non_alumni():
 
     return jsonify({'members': named_members}), 200
 
+
 @attendance_bp.route('/attendance_cm')
 def display_attendance_cm():
-
     user_name = request.headers.get('x-webauth-user')
     if not ldap_is_eboard(user_name) and user_name != 'loothelion':
         return redirect("/dashboard")
-
 
     return render_template(request,
                            'attendance_cm.html',
-                           username = user_name,
-                           date = datetime.utcnow().strftime("%Y-%m-%d"))
+                           username=user_name,
+                           date=datetime.utcnow().strftime("%Y-%m-%d"))
+
 
 @attendance_bp.route('/attendance_ts')
 def display_attendance_ts():
-
     user_name = request.headers.get('x-webauth-user')
     if not ldap_is_eboard(user_name) and user_name != 'loothelion':
         return redirect("/dashboard")
 
-
     return render_template(request,
                            'attendance_ts.html',
-                           username = user_name)
+                           username=user_name)
+
 
 @attendance_bp.route('/attendance_hm')
 def display_attendance_hm():
-
     user_name = request.headers.get('x-webauth-user')
     if not ldap_is_eval_director(user_name) and user_name != "loothelion":
         return redirect("/dashboard")
 
     return render_template(request,
                            'attendance_hm.html',
-                           username = user_name,
-                           date = datetime.utcnow().strftime("%Y-%m-%d"),
-                           members = get_non_alumni_non_coop(internal=True))
+                           username=user_name,
+                           date=datetime.utcnow().strftime("%Y-%m-%d"),
+                           members=get_non_alumni_non_coop(internal=True))
+
 
 @attendance_bp.route('/attendance/submit/cm', methods=['POST'])
 def submit_committee_attendance():
-    from db.database import db_session
+    from conditional.db.database import db_session
 
     user_name = request.headers.get('x-webauth-user')
 
@@ -194,9 +194,10 @@ def submit_committee_attendance():
     db_session.commit()
     return jsonify({"success": True}), 200
 
+
 @attendance_bp.route('/attendance/submit/ts', methods=['POST'])
 def submit_seminar_attendance():
-    from db.database import db_session
+    from conditional.db.database import db_session
 
     user_name = request.headers.get('x-webauth-user')
 
@@ -226,9 +227,10 @@ def submit_seminar_attendance():
     db_session.commit()
     return jsonify({"success": True}), 200
 
+
 @attendance_bp.route('/attendance/submit/hm', methods=['POST'])
 def submit_house_attendance():
-    from db.database import db_session
+    from conditional.db.database import db_session
 
     # status: Attended | Excused | Absent
 
@@ -253,17 +255,17 @@ def submit_house_attendance():
 
     for m in m_attendees:
         db_session.add(MemberHouseMeetingAttendance(
-                        m['uid'],
-                        meeting.id,
-                        m['excuse'],
-                        m['status']))
+            m['uid'],
+            meeting.id,
+            m['excuse'],
+            m['status']))
 
     for f in f_attendees:
         db_session.add(FreshmanHouseMeetingAttendance(
-                        f['id'],
-                        meeting.id,
-                        f['excuse'],
-                        f['status']))
+            f['id'],
+            meeting.id,
+            f['excuse'],
+            f['status']))
 
     db_session.commit()
     return jsonify({"success": True}), 200

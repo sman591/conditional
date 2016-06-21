@@ -8,6 +8,7 @@ db_session = None
 
 Base = declarative_base()
 
+
 def init_db(database_url):
     global engine, db_session, Base
     engine = create_engine(database_url, convert_unicode=True)
@@ -16,5 +17,5 @@ def init_db(database_url):
                                              bind=engine))
     Base.query = db_session.query_property()
 
-    import db.models
+    import conditional.db.models
     Base.metadata.create_all(bind=engine)

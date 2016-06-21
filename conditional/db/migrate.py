@@ -2,35 +2,34 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-from collections import Counter
-
-from db.database import init_db
-
+from conditional.db.database import init_db
 
 old_engine = None
 zoo_session = None
 old_Base = declarative_base()
 
+
 # Takes in param of SqlAlchemy Database Connection String
 def free_the_zoo(zoo_url, db_url):
-
     init_zoo_db(zoo_url)
 
     init_db(db_url)
 
     migrate_models()
 
+
 # Connect to Zookeeper
 def init_zoo_db(database_url):
     global old_Base, old_engine, zoo_session
     old_engine = create_engine(database_url, convert_unicode=True)
     zoo_session = scoped_session(sessionmaker(autocommit=False,
-                                             autoflush=False,
-                                             bind=old_engine))
-    import db.old_models
+                                              autoflush=False,
+                                              bind=old_engine))
+    import conditional.db.old_models
     old_Base.metadata.create_all(bind=old_engine)
 
-def idToCommittee(id):
+
+def id_to_committee(committee_id):
     committees = [
         'Evaluations',
         'Financial',
@@ -41,22 +40,23 @@ def idToCommittee(id):
         'Social',
         'Social',
         'Chairman'
-        ]
-    return committees[id]
+    ]
+    return committees[committee_id]
 
-def getFid(name):
-    from db.models import FreshmanAccount
+
+def get_fid(name):
+    from conditional.db.models import FreshmanAccount
 
     print(name)
     return FreshmanAccount.query.filter(FreshmanAccount.name == name).first().id
 
+
 # Begin the Great Migration!
 def migrate_models():
+    import conditional.db.old_models as zoo
+    import conditional.db.models as models
 
-    import db.old_models as zoo
-    import db.models as models
-
-    from db.database import db_session
+    from conditional.db.database import db_session
 
     print("BEGIN: freshman evals")
     # ==========
@@ -78,52 +78,50 @@ def migrate_models():
     for f in freshman_evals:
         if not f['username'].startswith('f_'):
             # freshman who have completed packet and have a CSH account
-            eval = models.FreshmanEvalData(f['username'], f['signaturesMissed'])
+            eval_data = models.FreshmanEvalData(f['username'], f['signaturesMissed'])
 
             # FIXME: Zookeeper was only pass/fail for freshman project not pending
             if f['projectStatus'] == 1:
-                eval.freshman_project = 'Passed'
+                eval_data.freshman_project = 'Passed'
 
-            eval.social_events = f['socialEvents']
-            eval.other_notes = f['comments']
-            eval.eval_date = f['evalDate']
+            eval_data.social_events = f['socialEvents']
+            eval_data.other_notes = f['comments']
+            eval_data.eval_date = f['evalDate']
             # TODO: conditional
             if f['result'] == "pass":
-                eval.freshman_eval_result = "Passed"
+                eval_data.freshman_eval_result = "Passed"
             elif f['result'] == "fail":
-                eval.freshman_eval_result = "Failed"
+                eval_data.freshman_eval_result = "Failed"
             else:
-                eval.freshman_eval_result = "Pending"
+                eval_data.freshman_eval_result = "Pending"
 
-            if f['techSems'] != None:
+            if f['techSems'] is not None:
                 t_sems = f['techSems'].split(',')
                 for sem in t_sems:
-                    if not sem in tech_sems:
+                    if sem not in tech_sems:
                         tech_sems[sem] = [f['username']]
                     else:
                         tech_sems[sem].append(f['username'])
-            db_session.add(eval)
+            db_session.add(eval_data)
         else:
             # freshman not yet done with packet
             # TODO FIXME The FALSE dictates that they are not given onfloor
             # status
             account = models.FreshmanAccount(f['username'], False)
             account.eval_date = f['evalDate']
-            if f['techSems'] != None:
+            if f['techSems'] is not None:
                 t_sems = f['techSems'].split(',')
                 for sem in t_sems:
-                    if not sem in tech_sems:
+                    if sem not in tech_sems:
                         tech_sems[sem] = [f['username']]
                     else:
                         tech_sems[sem].append(f['username'])
-            db_session.add(eval)
             db_session.add(account)
 
     print("tech sems")
     tech_sems.pop('', None)
     print(tech_sems)
 
-    i = 0
     for t_sem in tech_sems:
         sem = models.TechnicalSeminar(t_sem)
         db_session.add(sem)
@@ -133,7 +131,7 @@ def migrate_models():
         for m in tech_sems[t_sem]:
             if m.startswith("f_"):
                 print(sem.id)
-                a = models.FreshmanSeminarAttendance(getFid(m), sem.id)
+                a = models.FreshmanSeminarAttendance(get_fid(m), sem.id)
                 db_session.add(a)
             else:
                 a = models.MemberSeminarAttendance(m, sem.id)
@@ -152,12 +150,12 @@ def migrate_models():
             m.committee_id
         ) for m in zoo_session.query(zoo.Attendance).all()]
     c_meetings = list(set(c_meetings))
-    c_meetings = list(filter(lambda x: x[0] != None, c_meetings))
-    c_meetings.sort(key=lambda m: m[0])
+    c_meetings = list(filter(lambda x: x[0] is not None, c_meetings))
+    c_meetings.sort(key=lambda meeting: meeting[0])
 
     com_meetings = []
     for cm in c_meetings:
-        m = models.CommitteeMeeting(idToCommittee(cm[1]), cm[0])
+        m = models.CommitteeMeeting(id_to_committee(cm[1]), cm[0])
         if cm[0] is None:
             # fuck man
             continue
@@ -170,10 +168,10 @@ def migrate_models():
     c_meetings = [
         (
             m.username,
-                (
-                    m.meeting_date,
-                    m.committee_id
-                )
+            (
+                m.meeting_date,
+                m.committee_id
+            )
         ) for m in zoo_session.query(zoo.Attendance).all()]
 
     for cm in c_meetings:
@@ -184,7 +182,7 @@ def migrate_models():
             continue
         if cm[0].startswith('f_'):
             f = models.FreshmanCommitteeAttendance(
-                getFid(cm[0]),
+                get_fid(cm[0]),
                 com_meetings.index(cm[1])
             )
             db_session.add(f)
@@ -208,8 +206,9 @@ def migrate_models():
             "status": c.status
         } for c in zoo_session.query(zoo.Conditional).all()]
 
+    from conditional.db.models import Conditional
     for c in condits:
-        condit = model.Conditional(c['uid'], c['desc'], c['deadline'])
+        condit = Conditional(c['uid'], c['desc'], c['deadline'])
         db_session.add(condit)
 
     print("END: migrate conditionals")
@@ -245,8 +244,6 @@ def migrate_models():
     for a in hma:
         meeting_id = house_meetings[a['date'].strftime("%Y-%m-%d")]
 
-        status = None
-        excuse = None
         if a['present'] == 1:
             status = "Attended"
         elif a['excused'] == 1:
@@ -258,7 +255,7 @@ def migrate_models():
         if a['uid'].startswith("f_"):
             # freshman
             fhma = models.FreshmanHouseMeetingAttendance(
-                getFid(a['uid']),
+                get_fid(a['uid']),
                 meeting_id,
                 excuse,
                 status)
@@ -304,7 +301,7 @@ def migrate_models():
     # ==========
 
     print("BEGIN: ON FLOOR")
-    import util.ldap as ldap
+    import conditional.util.ldap as ldap
     from datetime import datetime
     members = [m['uid'][0].decode('utf-8') for m in ldap.ldap_get_onfloor_members()]
     for m in members:

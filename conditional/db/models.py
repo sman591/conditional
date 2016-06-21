@@ -1,10 +1,10 @@
-from sqlalchemy import Column, Integer, String, Enum, ForeignKey, DateTime, \
-                       Date, Text, Boolean
-from db.database import Base
+from sqlalchemy import Column, Integer, String, Enum, ForeignKey, DateTime, Date, Text, Boolean
+from conditional.db.database import Base
 import time
 from datetime import date, timedelta, datetime
 
 attendance_enum = Enum('Attended', 'Excused', 'Absent', name='attendance_enum')
+
 
 class FreshmanAccount(Base):
     __tablename__ = 'freshman_accounts'
@@ -19,18 +19,19 @@ class FreshmanAccount(Base):
         self.eval_date = today + timedelta(weeks=10)
         self.onfloor_status = onfloor
 
+
 class FreshmanEvalData(Base):
     __tablename__ = 'freshman_eval_data'
     id = Column(Integer, primary_key=True)
     uid = Column(String(32), nullable=False)
     freshman_project = Column(Enum('Pending', 'Passed', 'Failed',
-        name="freshman_project_enum"), nullable=False)
+                                   name="freshman_project_enum"), nullable=False)
     eval_date = Column(DateTime, nullable=False)
     signatures_missed = Column(Integer, nullable=False)
     social_events = Column(Text)
     other_notes = Column(Text)
     freshman_eval_result = Column(Enum('Pending', 'Passed', 'Failed',
-        name="freshman_eval_enum"), nullable=False)
+                                       name="freshman_eval_enum"), nullable=False)
     active = Column(Boolean)
 
     def __init__(self, uid, signatures_missed):
@@ -41,12 +42,13 @@ class FreshmanEvalData(Base):
         self.other_notes = ""
         self.active = True
 
+
 class CommitteeMeeting(Base):
     __tablename__ = 'committee_meetings'
     id = Column(Integer, primary_key=True)
     committee = Column(Enum('Evaluations', 'History', 'Social', 'Opcomm',
-        'R&D', 'House Improvements', 'Financial', 'Chairman', name="committees_enum"),
-        nullable=False)
+                            'R&D', 'House Improvements', 'Financial', 'Chairman', name="committees_enum"),
+                       nullable=False)
     timestamp = Column(DateTime, nullable=False)
     active = Column(Boolean)
 
@@ -54,6 +56,7 @@ class CommitteeMeeting(Base):
         self.committee = committee
         self.timestamp = timestamp
         self.active = True
+
 
 class MemberCommitteeAttendance(Base):
     __tablename__ = 'member_committee_attendance'
@@ -65,6 +68,7 @@ class MemberCommitteeAttendance(Base):
         self.uid = uid
         self.meeting_id = meeting_id
 
+
 class FreshmanCommitteeAttendance(Base):
     __tablename__ = 'freshman_committee_attendance'
     id = Column(Integer, primary_key=True)
@@ -74,6 +78,7 @@ class FreshmanCommitteeAttendance(Base):
     def __init__(self, fid, meeting_id):
         self.fid = fid
         self.meeting_id = meeting_id
+
 
 class TechnicalSeminar(Base):
     __tablename__ = 'technical_seminars'
@@ -85,6 +90,7 @@ class TechnicalSeminar(Base):
         self.name = name
         self.active = True
 
+
 class MemberSeminarAttendance(Base):
     __tablename__ = 'member_seminar_attendance'
     id = Column(Integer, primary_key=True)
@@ -94,6 +100,7 @@ class MemberSeminarAttendance(Base):
     def __init__(self, uid, seminar_id):
         self.uid = uid
         self.seminar_id = seminar_id
+
 
 class FreshmanSeminarAttendance(Base):
     __tablename__ = 'freshman_seminar_attendance'
@@ -105,6 +112,7 @@ class FreshmanSeminarAttendance(Base):
         self.fid = fid
         self.seminar_id = seminar_id
 
+
 class MajorProject(Base):
     __tablename__ = 'major_projects'
     id = Column(Integer, primary_key=True)
@@ -113,7 +121,7 @@ class MajorProject(Base):
     description = Column(Text)
     active = Column(Boolean, nullable=False)
     status = Column(Enum('Pending', 'Passed', 'Failed',
-                          name="major_project_enum"),
+                         name="major_project_enum"),
                     nullable=False)
 
     def __init__(self, uid, name, desc):
@@ -123,15 +131,17 @@ class MajorProject(Base):
         self.status = 'Pending'
         self.active = True
 
+
 class HouseMeeting(Base):
     __tablename__ = 'house_meetings'
     id = Column(Integer, primary_key=True)
     date = Column(Date, nullable=False)
     active = Column(Boolean, nullable=False)
 
-    def __init__(self, date):
-        self.date = date
+    def __init__(self, meeting_date):
+        self.date = meeting_date
         self.active = True
+
 
 class MemberHouseMeetingAttendance(Base):
     __tablename__ = 'member_hm_attendance'
@@ -147,6 +157,7 @@ class MemberHouseMeetingAttendance(Base):
         self.excuse = excuse
         self.attendance_status = status
 
+
 class FreshmanHouseMeetingAttendance(Base):
     __tablename__ = 'freshman_hm_attendance'
     id = Column(Integer, primary_key=True)
@@ -161,6 +172,7 @@ class FreshmanHouseMeetingAttendance(Base):
         self.excuse = excuse
         self.attendance_status = status
 
+
 class CurrentCoops(Base):
     __tablename__ = 'current_coops'
     id = Column(Integer, primary_key=True)
@@ -173,14 +185,16 @@ class CurrentCoops(Base):
         self.active = True
         self.date_created = datetime.now()
 
+
 class OnFloorStatusAssigned(Base):
     __tablename__ = 'onfloor_datetime'
     uid = Column(String(32), primary_key=True)
     onfloor_granted = Column(DateTime, primary_key=True)
 
-    def __init__(self, uid, datetime):
+    def __init__(self, uid, timestamp):
         self.uid = uid
-        self.onfloor_granted = datetime
+        self.onfloor_granted = timestamp
+
 
 class Conditional(Base):
     __tablename__ = 'conditional'
@@ -191,8 +205,8 @@ class Conditional(Base):
     date_due = Column(Date, nullable=False)
     active = Column(Boolean, nullable=False)
     status = Column(Enum('Pending', 'Passed', 'Failed',
-                          name="conditional_enum"),
-                          nullable=False)
+                         name="conditional_enum"),
+                    nullable=False)
 
     def __init__(self, uid, description, due):
         self.uid = uid
@@ -201,6 +215,7 @@ class Conditional(Base):
         self.date_created = datetime.utcnow()
         self.status = "Pending"
         self.active = True
+
 
 class EvalSettings(Base):
     __tablename__ = 'settings'
@@ -214,6 +229,7 @@ class EvalSettings(Base):
         self.intro_form_active = True
         self.site_lockdown = False
 
+
 class SpringEval(Base):
     __tablename__ = 'spring_evals'
     id = Column(Integer, primary_key=True)
@@ -221,14 +237,15 @@ class SpringEval(Base):
     active = Column(Boolean, nullable=False)
     date_created = Column(Date, nullable=False)
     status = Column(Enum('Pending', 'Passed', 'Failed',
-                          name="spring_eval_enum"),
-                          nullable=False)
+                         name="spring_eval_enum"),
+                    nullable=False)
 
     def __init__(self, uid):
         self.uid = uid
         self.active = True
         self.date_created = datetime.now()
         self.status = "Pending"
+
 
 class HousingEvalsSubmission(Base):
     __tablename__ = 'housing_evals'
@@ -245,9 +262,8 @@ class HousingEvalsSubmission(Base):
     date_created = Column(Date, nullable=False)
 
     def __init__(self, uid, social_attended,
-        social_hosted, technical_attended,
-        technical_hosted, projects, comments):
-
+                 social_hosted, technical_attended,
+                 technical_hosted, projects, comments):
         self.uid = uid
         self.social_attended = social_attended
         self.social_hosted = social_hosted

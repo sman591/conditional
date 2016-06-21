@@ -1,31 +1,19 @@
-from flask import Blueprint
-from flask import request
-from flask import jsonify
+from flask import Blueprint, request, jsonify
 
-from db.models import FreshmanAccount
-from db.models import FreshmanEvalData
-from db.models import FreshmanCommitteeAttendance
-from db.models import MemberCommitteeAttendance
-from db.models import FreshmanSeminarAttendance
-from db.models import MemberSeminarAttendance
-from db.models import FreshmanHouseMeetingAttendance
-from db.models import MemberHouseMeetingAttendance
-from db.models import HouseMeeting
-from db.models import EvalSettings
-from db.models import OnFloorStatusAssigned
-from db.models import SpringEval
+from datetime import datetime
 
-from util.ldap import ldap_is_eval_director
-from util.ldap import ldap_is_financial_director
-from util.ldap import ldap_set_roomnumber
-from util.ldap import ldap_set_active
-from util.ldap import ldap_set_housingpoints
-from util.ldap import ldap_get_room_number
-from util.ldap import ldap_get_housing_points
-from util.ldap import ldap_is_active
-from util.ldap import ldap_is_onfloor
-from util.flask import render_template
+from conditional.db.models import FreshmanAccount, FreshmanEvalData, FreshmanCommitteeAttendance, \
+    MemberCommitteeAttendance, FreshmanSeminarAttendance, MemberSeminarAttendance, FreshmanHouseMeetingAttendance, \
+    MemberHouseMeetingAttendance, HouseMeeting, EvalSettings, OnFloorStatusAssigned, SpringEval, attendance_enum
+
+from conditional.util.ldap import ldap_is_eval_director, ldap_is_financial_director, ldap_set_roomnumber, \
+    ldap_set_active, ldap_set_housingpoints, ldap_get_room_number, ldap_get_housing_points, ldap_is_active, \
+    ldap_is_onfloor
+
+from conditional.util.flask import render_template
+
 member_management_bp = Blueprint('member_management_bp', __name__)
+
 
 @member_management_bp.route('/manage')
 def display_member_management():
@@ -36,10 +24,11 @@ def display_member_management():
 
     settings = EvalSettings.query.first()
     return render_template(request, "member_management.html",
-            username=user_name,
-            housing_form_active=settings.housing_form_active,
-            intro_form_active=settings.intro_form_active,
-            site_lockdown=settings.site_lockdown)
+                           username=user_name,
+                           housing_form_active=settings.housing_form_active,
+                           intro_form_active=settings.intro_form_active,
+                           site_lockdown=settings.site_lockdown)
+
 
 @member_management_bp.route('/manage/settings', methods=['POST'])
 def member_management_eval():
@@ -68,14 +57,15 @@ def member_management_eval():
                 'site_lockdown': post_data['site_lockdown']
             })
 
-    from db.database import db_session
+    from conditional.db.database import db_session
     db_session.flush()
     db_session.commit()
     return jsonify({"success": True}), 200
 
+
 @member_management_bp.route('/manage/adduser', methods=['POST'])
 def member_management_adduser():
-    from db.database import db_session
+    from conditional.db.database import db_session
 
     user_name = request.headers.get('x-webauth-user')
 
@@ -92,9 +82,9 @@ def member_management_adduser():
     db_session.commit()
     return jsonify({"success": True}), 200
 
+
 @member_management_bp.route('/manage/edituser', methods=['POST'])
 def member_management_edituser():
-
     user_name = request.headers.get('x-webauth-user')
 
     if not ldap_is_eval_director(user_name) and not ldap_is_financial_director(user_name) and user_name != 'loothelion':
@@ -107,18 +97,17 @@ def member_management_edituser():
 
     if ldap_is_eval_director(user_name):
         room_number = post_data['room_number']
-        onfloor_status = post_data['onfloor_status']
         housing_points = post_data['housing_points']
 
         ldap_set_roomnumber(uid, room_number)
-        #TODO FIXME ADD USER TO ONFLOOR GROUP
+        # TODO FIXME ADD USER TO ONFLOOR GROUP
         ldap_set_housingpoints(uid, housing_points)
 
     # Only update if there's a diff
     if ldap_is_active(uid) != active_member:
         ldap_set_active(uid, active_member)
 
-        from db.database import db_session
+        from conditional.db.database import db_session
         if active_member:
             db_session.add(SpringEval(uid))
         else:
@@ -132,6 +121,7 @@ def member_management_edituser():
         db_session.commit()
 
     return jsonify({"success": True}), 200
+
 
 @member_management_bp.route('/manage/getuserinfo', methods=['POST'])
 def member_management_getuserinfo():
@@ -149,7 +139,7 @@ def member_management_getuserinfo():
         # missed hm
         def get_hm_date(hm_id):
             return HouseMeeting.query.filter(
-                HouseMeeting.id == hm_id).\
+                HouseMeeting.id == hm_id). \
                 first().date.strftime("%Y-%m-%d")
 
         missed_hm = [
@@ -182,6 +172,7 @@ def member_management_getuserinfo():
                 'user': 'financial'
             })
 
+
 @member_management_bp.route('/manage/edit_hm_excuse', methods=['POST'])
 def member_management_edit_hm_excuse():
     user_name = request.headers.get('x-webauth-user')
@@ -202,7 +193,7 @@ def member_management_edit_hm_excuse():
             'attendance_status': hm_status
         })
 
-    from db.database import db_session
+    from conditional.db.database import db_session
     db_session.flush()
     db_session.commit()
     return jsonify({"success": True}), 200
@@ -213,7 +204,7 @@ def member_management_edit_hm_excuse():
 # manually need to do this
 @member_management_bp.route('/manage/upgrade_user', methods=['POST'])
 def member_management_upgrade_user():
-    from db.database import db_session
+    from conditional.db.database import db_session
 
     user_name = request.headers.get('x-webauth-user')
 
@@ -226,22 +217,19 @@ def member_management_upgrade_user():
     uid = post_data['uid']
     signatures_missed = post_data['sigsMissed']
 
-    acct = FreshmanAccount.query.filter(
-            FreshmanAccount.id == fid).first()
-
     db_session.add(FreshmanEvalData(uid, signatures_missed))
 
     for fca in FreshmanCommitteeAttendance.query.filter(
-        FreshmanCommitteeAttendance.fid == fid):
+                    FreshmanCommitteeAttendance.fid == fid):
         db_session.add(MemberCommitteeAttendance(uid, fca.meeting_id))
         # TODO FIXME Do we need to also remove FID stuff?
 
     for fts in FreshmanSeminarAttendance.query.filter(
-        FreshmanSeminarAttendance.fid == fid):
-        db_session.add(MemberSeminarAttendance(uid, fca.seminar_id))
+                    FreshmanSeminarAttendance.fid == fid):
+        db_session.add(MemberSeminarAttendance(uid, fts.seminar_id))
 
     for fhm in FreshmanHouseMeetingAttendance.query.filter(
-        FreshmanHouseMeetingAttendance.fid == fid):
+                    FreshmanHouseMeetingAttendance.fid == fid):
         db_session.add(MemberHouseMeetingAttendance(
             uid, fhm.meeting_id, fhm.excuse, fhm.status))
 
