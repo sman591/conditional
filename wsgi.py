@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import sys
 import getpass
 import unittest.mock as mock
 from conditional import app
@@ -22,15 +21,12 @@ with mock.patch.object(getpass, "getuser", return_value='default'):
 
     database.init_db(app.config['DB_URL'])
 
-    if __name__ == '__main__':
-        if len(sys.argv) > 1 and sys.argv[1] == "migrate":
-            # Run database migration
-            migrate_url = os.environ.get("MIGRATE_URL")
-            if migrate_url:
+    migrate_url = os.environ.get("MIGRATE_URL")
+    if migrate_url:
+        # Free the zoo! Run database migration.
+        print("---> Migrating database...")
+        migrate.free_the_zoo(migrate_url, app.config['DB_URL'])
+        print("---> Migration complete!")
 
-                migrate.free_the_zoo(migrate_url, app.config['DB_URL'])
-            else:
-                print("You must set the MIGRATE_URL environment variable before attempting a migration.")
-                print("Example: export MIGRATE_URL='mysql:///user:pass@host/old_db'; ./wsgi.py migrate")
-        else:
-            app.run(debug=app.config['DEBUG'], host=app.config['IP'], port=app.config['PORT'])
+    if __name__ == '__main__':
+        app.run(debug=app.config['DEBUG'], host=app.config['IP'], port=app.config['PORT'])
