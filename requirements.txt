@@ -3,6 +3,8 @@ itsdangerous
 Jinja2
 MarkupSafe
 psycopg2
+PyMySQL
 pyldap
 SQLAlchemy
 Werkzeug
+gunicorn
